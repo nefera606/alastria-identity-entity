@@ -46,6 +46,10 @@ export class SocketService {
     this.socket.emit('getPresentationData');
   }
 
+  public sendFillYourProfileWS(message: any): void {
+    this.socket.emit('fillYourProfileWs', message)
+  }
+
   public sendFillYourProfile(): void {
     this.socket.emit('fillYourProfile');
   }

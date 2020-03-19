@@ -272,7 +272,11 @@ export class ProfileComponent implements OnInit {
     this.qrDataFillProfile = JSON.stringify({
       verifiableCredential: credentials
     });
-    $('#simpleModal').modal('show');
+    if(this.isDesktop) {
+      $('#simpleModal').modal('show');
+    } else {
+      this.socketService.sendFillYourProfileWS(this.qrDataFillProfile)
+    }
   }
 
   private async sendAlastriaTokenToApp() {
