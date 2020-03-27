@@ -77,7 +77,7 @@ function createAlastriaID(req, res) {
 function addIssuerCredential(req, res) {
   try {
     log.info(`${controller_name}[${addIssuerCredential.name}] -----> IN ...`)
-    let params = req.swagger.params.body.value
+    let params = req.swagger.params.credential.value
     log.debug(`${controller_name}[${addIssuerCredential.name}] -----> Sending params: ${JSON.stringify(params)}`)
     entityService.addIssuerCredential(params)
     .then(addSubjectPres => {

@@ -20,8 +20,6 @@ log.level = myConfig.Log.level
 let issuerKeystore = myConfig.issuerKeystore
 let issuerIdentity, issuerPrivateKey
 
-
-
 /////////////////////////////////////////////////////////
 ///////             PRIVATE FUNCTIONS             ///////
 /////////////////////////////////////////////////////////
@@ -44,14 +42,15 @@ function sendSigned(transactionSigned) {
     log.info(`${serviceName}[${sendSigned.name}] -----> IN ...`)
     web3.eth.sendSignedTransaction(transactionSigned)
     .on('transactionHash', function (hash) {
-      log.info(`${serviceName}[${sendSigned.name}] -----> HASH: ${hash} ...`)
+      log.info(`${serviceName}[${sendSigned.name}] -----> HASH: ${hash}`)
     })
     .on('receipt', receipt => {
-      resolve(receipt)
+      log.info(`${serviceName}[${sendSigned.name}] -----> Transaction Done`)
+      return resolve(receipt)
     })
     .on('error', error => {
       log.error(`${serviceName}[${sendSigned.name}] -----> ${error}`)
-      reject(error)
+      return reject(error)
     });
   })
 }
@@ -60,11 +59,11 @@ function issuerGetKnownTransaction(issuerCredential) {
   return new Promise((resolve, reject) => {
     let issuerID = getIssuerIdentity()
     issuerID.getKnownTransaction(issuerCredential)
-    .then(receipt => {
-      resolve(receipt)
+    .then(result => {
+      return resolve(result)
     })
     .catch(error => {
-      reject(error)
+      return reject(error)
     })
   })
 }
@@ -99,6 +98,7 @@ function preparedAlastriaId(subjectAddress) {
 module.exports = {
   createAlastriaID,
   addIssuerCredential,
+  getIssuerCredentialStatus,
   getCurrentPublicKey,
   getPresentationStatus,
   updateReceiverPresentationStatus,
@@ -134,26 +134,26 @@ function createAlastriaID(params) {
               message: "Successfuly created Alastria ID",
               did: alastriaDID
             }
-            resolve(msg)
+            return resolve(msg)
           })
           .catch(error => {
             log.error(`${serviceName}[${createAlastriaID.name}] -----> ${error}`)
-            reject(error)
+            return reject(error)
           })
         })
         .catch(error => {
           log.error(`${serviceName}[${createAlastriaID.name}] -----> ${error}`)
-          reject(error)
+          return reject(error)
         })
       })
       .catch(error => {
         log.error(`${serviceName}[${createAlastriaID.name}] -----> ${error}`)
-        reject(error)
+        return reject(error)
       })
     })
     .catch(error => {
       log.error(`${serviceName}[${createAlastriaID.name}] -----> ${error}`)
-      reject(error)
+      return reject(error)
     })
   })
 }
@@ -161,36 +161,78 @@ function createAlastriaID(params) {
 function addIssuerCredential(params) {
   return new Promise((resolve, reject) => {
     log.info(`${serviceName}[${addIssuerCredential.name}] -----> IN ...`)
-    log.debug(`${serviceName}[${addIssuerCredential.name}] -----> Calling addIssuer credential With params: ${JSON.stringify(params)}`)
-    let issuerCredential = transactionFactory.credentialRegistry.addIssuerCredential(web3, params.issuerCredentialHash)
-    issuerGetKnownTransaction(issuerCredential)
-    .then(issuerCredentialSigned => {
-      sendSigned(issuerCredentialSigned)
-      .then(receipt => {
-        let issuerCredentialTransaction = transactionFactory.credentialRegistry.getIssuerCredentialStatus(web3, params.issuer, params.issuerCredentialHash)
-        web3.eth.call(issuerCredentialTransaction)
-        .then(IssuerCredentialStatus => {
-          let result = web3.eth.abi.decodeParameters(["bool", "uint8"], IssuerCredentialStatus)
-          let credentialStatus = {
-            "exists": result[0],
-            "status": result[1]
-          }
-          log.info(`${serviceName}[${addIssuerCredential.name}] -----> Success`)
-          resolve(credentialStatus)
+    log.debug(`${serviceName}[${addIssuerCredential.name}] -----> Calling addIssuerCredential With params: ${JSON.stringify(params)}`)
+    let result
+    // params.issuerCredential.verifiableCredential.map(credential => {
+      let credential = params.issuerCredential.verifiableCredential[0]
+      console.log(credential)
+      let issuerPSMHash = tokensFactory.tokens.PSMHash(web3, credential, myConfig.didIssuer.split(':')[4])
+      let issuerCredentialTX = transactionFactory.credentialRegistry.addIssuerCredential(web3, issuerPSMHash)
+      issuerGetKnownTransaction(issuerCredentialTX)
+      .then(issuerCredentialSigned => {
+        sendSigned(issuerCredentialSigned)
+        .then(receipt => {
+          getIssuerCredentialStatus(issuerPSMHash)
+          .then(status => {
+            console.log(status)
+            result = {
+              message: 'Credential saved by issuer',
+            }
+            log.info(`${serviceName}[${addIssuerCredential.name}] -----> Success: ${result.message}`)
+            return resolve(result)
+            })
+            .catch(error => {
+              console.log(error)
+            })
+          })
+          .catch(error => {
+            log.error(`${serviceName}[${addIssuerCredential.name}] -----> ${error}`)
+            return reject(error)
+          })
         })
         .catch(error => {
           log.error(`${serviceName}[${addIssuerCredential.name}] -----> ${error}`)
-          reject(error)
+          return reject(error)
         })
-      })
-      .catch(error => {
-        log.error(`${serviceName}[${addIssuerCredential.name}] -----> ${error}`)
-        reject(error)
-      })
+    // })
+  })
+}
+
+function getIssuerCredentialStatus(psmHash) {
+  return new Promise((resolve, reject) => {
+    log.info(`${serviceName}[${getIssuerCredentialStatus.name}] -----> IN ...`)
+    log.debug(`${serviceName}[${getIssuerCredentialStatus.name}] -----> Calling getIssuerCredentialStatus With params: ${JSON.stringify(psmHash)}`)
+    let issuerCredentialTransaction = transactionFactory.credentialRegistry.getIssuerCredentialStatus(web3, myConfig.didIssuer.split(':')[4], psmHash)
+    web3.eth.call(issuerCredentialTransaction)
+    .then(status => {
+      let response = web3.eth.abi.decodeParameters(["bool", "uint8"], status)
+      let credentialStatus = response[1]
+      log.info(`${serviceName}[${getIssuerCredentialStatus.name}] -----> Success`)
+      return resolve(credentialStatus)
     })
     .catch(error => {
-      log.error(`${serviceName}[${addIssuerCredential.name}] -----> ${error}`)
-      reject(error)
+      log.error(`${serviceName}[${getIssuerCredentialStatus.name}] -----> ${error}`)
+      return reject(error)
+    })
+  })
+}
+
+function getCredentialStatus(subjectStatus, issuerStatus) {
+  return new Promise((resolve, reject) => {
+    log.info(`${serviceName}[${getCredentialStatus.name}] -----> IN ...`)
+    log.debug(`${serviceName}[${getCredentialStatus.name}] -----> Subject Status: ${subjectStatus}, Issuer Status: ${issuerStatus}`)
+    let credentialStatusTX = transactionFactory.credentialRegistry.getCredentialStatus(web3, subjectStatus, issuerStatus)
+    web3.eth.call(credentialStatusTX)
+    .then(status => {
+      console.log(status)
+      let response = web3.eth.abi.decodeParameter("uint8", status)
+      let credentialStatus = response[0]
+      log.info(`${serviceName}[${getCredentialStatus.name}] -----> Success`)
+      return resolve(credentialStatus)
+    })
+    .catch(error => {
+      log.error(`${serviceName}[${getCredentialStatus.name}] -----> ${error}`)
+      return reject(error)
     })
   })
 }
@@ -203,11 +245,11 @@ function getCurrentPublicKey(subject) {
     .then(result => {
       log.info(`${serviceName}[${getCurrentPublicKey.name}] -----> Public Key Success`)
       let pubKey = web3.eth.abi.decodeParameters(['string'], result) 
-      resolve(pubKey)
+      return resolve(pubKey)
     })
     .catch(error => {
       log.error(`${serviceName}[${getCurrentPublicKey.name}] -----> ${error}`)
-      reject(error)
+      return reject(error)
     })
   })
 }
@@ -230,11 +272,11 @@ function getPresentationStatus(subject, issuer, presentationHash) {
           status: resultStatus[1]
         }
         log.info(`${serviceName}[${getPresentationStatus.name}] -----> Presentation Status Success`)
-        resolve(resultStatusJson);
+        return resolve(resultStatusJson);
       })
       .catch(error => {
         log.error(`${serviceName}[${getPresentationStatus.name}] -----> ${error}`)
-        reject(error)
+        return reject(error)
       })
     }
   });
@@ -249,52 +291,17 @@ function updateReceiverPresentationStatus(presentationHash, newStatus) {
       sendSigned(updatepresentationStatusSigned)
       .then(receipt => {
         log.info(`${serviceName}[${updateReceiverPresentationStatus.name}] -----> Success`)
-        resolve();
+        return resolve();
       })
       .catch(error => {
         log.error(`${serviceName}[${updateReceiverPresentationStatus.name}] -----> ${error}`)
-        reject(error)
+        return reject(error)
       })
     })
     .catch(error => {
       log.error(`${serviceName}[${updateReceiverPresentationStatus.name}] -----> ${error}`)
-      reject(error)
+      return reject(error)
     })
-  })
-}
-
-function getCredentialStatus(credentialHash, issuer, subject) {
-  return new Promise((resolve, reject) => {
-    log.info(`${serviceName}[${getCredentialStatus.name}] -----> IN ...`)
-    let credentialStatus = null;
-    if (issuer != null) {
-      let didIssuer = issuer.split(':')[4]
-      credentialStatus = transactionFactory.credentialRegistry.getIssuerCredentialStatus(web3, didIssuer, credentialHash);
-    } else if (subject != null) {
-      let didSubject = subject.split(':')[4]
-      credentialStatus = transactionFactory.credentialRegistry.getSubjectCredentialStatus(web3, didSubject, credentialHash);
-    }
-    if (credentialStatus.exists == true) {
-      web3.eth.call(credentialStatus)
-      .then(result => {
-        let resultStatus = web3.eth.abi.decodeParameters(["bool", "uint8"], result)
-        let resultStatusJson = {
-          exist: resultStatus[0],
-          status: resultStatus[1]
-        }
-        log.info(`${serviceName}[${getCredentialStatus.name}] -----> Credential Status Success`)
-        resolve(resultStatusJson);
-      })
-      .catch(error => {
-        log.error(`${serviceName}[${getCredentialStatus.name}] -----> ${error}`)
-        reject(error)
-      })
-    } else {
-      let msg = {
-        message: "Credential not saved"
-      }
-      reject(msg)
-    }
   })
 }
 
@@ -320,27 +327,27 @@ function getPresentationData(data) {
               credentials.push(JSON.parse(credential.payload).vc.credentialSubject)
             } else {
               log.error(`${serviceName}[${getPresentationData.name}] -----> Error verifying Credential JWT`)
-              reject(verifyCredential)
+              return reject(verifyCredential)
             }
           })
           log.info(`${serviceName}[${getPresentationData.name}] -----> Credential obtained Success`)
-          resolve(credentials)
+          return resolve(credentials)
         })
         .catch(error => {
           log.error(`${serviceName}[${getPresentationData.name}] -----> ${error}`)
-          reject(error)
+          return reject(error)
         })
       } else {
         let msg = {
           message: 'Presentation not registered'
         }
         log.error(`${serviceName}[${getPresentationData.name}] -----> ${msg.message}`)
-        reject(msg)
+        return reject(msg)
       }
     })
     .catch(error => {
       log.error(`${serviceName}[${getPresentationData.name}] -----> ${error}`)
-      reject(error)
+      return reject(error)
     })
   }) 
 }
@@ -364,20 +371,20 @@ function verifyAlastriaSession(alastriaSession) {
             did: didSubject
           }
           let result = (user == null) ? msg : user
-          resolve(result)
+          return resolve(result)
         })
         .catch(error => {
           log.error(`${serviceName}[${verifyAlastriaSession.name}] -----> ${error}`)
-          reject(error)
+          return reject(error)
         })
       } else {
         log.error(`${serviceName}[${verifyAlastriaSession.name}] -----> Unauthorized`)
-        reject('User Unauthorized')
+        return reject('User Unauthorized')
       }
     })
     .catch(error => {
       log.error(`${serviceName}[${verifyAlastriaSession.name}] -----> ${error}`)
-      reject(error)
+      return reject(error)
     })
   })
  }

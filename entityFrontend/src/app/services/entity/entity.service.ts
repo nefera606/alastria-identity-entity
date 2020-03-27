@@ -36,23 +36,6 @@ export class EntityService {
   }
 
   /**
-   * Function for create subject credential calling at the server
-   * @param signedTX - hash of the signed transaction
-   * @returns {*}
-   */
-  createSubjectCredential(signedTX: string): any {
-    const body = {
-      signedTX
-    };
-
-    return this.http.post(`${this.apiUrl}/${this.path}/credential`, body).toPromise()
-      .then((res) => res)
-      .catch((error: any) => {
-        throw error;
-      });
-  }
-
-  /**
    * @param alastriaId - identifier of alastria for get public key
    * @returns {*}
    */
@@ -65,5 +48,25 @@ export class EntityService {
       .catch((error: any) => {
         throw error;
       });
+  }
+
+  /**
+   * Function for add subject credential by the isssuer calling at the server
+   * @param signedTX - hash of the signed transaction
+   * @returns {*}
+   */
+  addIssuerCredentials(issuerCredential: any): any {
+    console.log(issuerCredential)
+    let credentialData = {
+      issuerCredential
+    }
+    console.log(credentialData)
+    return this.http.post(`${this.apiUrl}/${this.path}/credential`, credentialData).toPromise()
+      .then((res) => {
+        return res
+      })
+      .catch((error: any) => {
+      })
+
   }
 }

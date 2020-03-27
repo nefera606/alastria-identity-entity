@@ -12,6 +12,7 @@ import { UserFormComponent } from 'src/app/components/common/user-form/user-form
 import { UserService } from 'src/app/services/user/user.service';
 import { SocketService } from 'src/app/services/socket/socket.service';
 import { AlastriaLibService } from 'src/app/services/alastria-lib/alastria-lib.service';
+import { EntityService } from 'src/app/services/entity/entity.service'
 
 // MODELS
 import { User } from 'src/app/models/user/user.model';
@@ -125,6 +126,7 @@ export class ProfileComponent implements OnInit {
   constructor(private userService: UserService,
               private socketService: SocketService,
               private alastriaLibService: AlastriaLibService,
+              private entityService: EntityService,
               private http: HttpClient,
               private changeDetector: ChangeDetectorRef,
               private deviceDetectorService: DeviceDetectorService) {
@@ -272,6 +274,11 @@ export class ProfileComponent implements OnInit {
     this.qrDataFillProfile = JSON.stringify({
       verifiableCredential: credentials
     });
+    console.log('Credential ...', credentials)
+    this.entityService.addIssuerCredentials(JSON.parse(this.qrDataFillProfile))
+      .then((status) => {
+        console.log('Issuer Status -->', status)
+      });
     if(this.isDesktop) {
       $('#simpleModal').modal('show');
     } else {

@@ -472,7 +472,7 @@ paths:
       # used as the method name of the controller
       operationId: addIssuerCredential
       parameters:
-        - name: body
+        - name: credential
           in: body
           description: Necessary data to add a new subject credential
           required: false
@@ -920,14 +920,10 @@ definitions:
         type: string
   issuerCredentialdata:
     type: "object"
-    required: [issuerCredentialHash, issuer]
+    required: [issuerCredential]
     properties:
-      "issuerCredentialHash":
-        type: string
-        example: "0x47f4c19df21b0f98718e1ed91c7d5c5f5511a64093b0a3dd943fb54a74eb16d2....0xe90eeaa7931c54966c2badf7bed04b5bb46c6dc4970bd32c05cc614c27f93d0e"
-      "issuer":
-        type: string
-        example: "0xde7ab34219563ac50ccc7b51d23b9a61d22a383e"
+      "issuerCredential":
+        type: object
   subjectPresentationData:
     type: "object"
     required: [subjectPresentationHash, uri, subject]
