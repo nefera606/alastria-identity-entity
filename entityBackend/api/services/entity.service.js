@@ -16,6 +16,7 @@ const tokenHelper = require('../helpers/token.helper')
 const serviceName = '[Entity Service]'
 const Log = require('log4js')
 const log = Log.getLogger()
+const staticUser = require('../../mock/staticUser.js');
 log.level = myConfig.Log.level
 
 /////////////////////////////////////////////////////////
@@ -335,7 +336,7 @@ async function getSubjectCredentialList(identityDID){
 async function createCredential(identityDID, credentials) {
   try {
     log.info(`${serviceName}[${createCredential.name}] -----> IN ...`)
-    let user = await userModel.getUser(identityDID)
+    let user = process.env.DEBUG ? staticUser : await userModel.getUser(identityDID);
     let credentialsJWT = []
     let credentialsTXSigned = []
     let sendCredentialTX = []
@@ -344,8 +345,14 @@ async function createCredential(identityDID, credentials) {
       const currentDate = Math.floor(Date.now() / 1000);
       const expDate = currentDate + 600;
       let jti = Math.random().toString(36).substring(2)
-      credentialSubject.levelOfAssurance = credential.levelOfAssurance
-      credentialSubject[credential.field_name] = (credential.field_name === 'name') ? `${user.userData[credential.field_name]} ${user.userData.surname}` : user.userData[credential.field_name]
+      credentialSubject =  {
+        "levelOfAssurance": "Basic",
+        "name_credential": "cred_covid19",
+        "fullname_credential":"PERMISO LABORAL COVID-19",
+        "entity_issuer": "Grant Thornton",
+        "status_credential": true,
+        "description_credential":"Breve descripción sobre la credencial de covid19 para ir a trabajar"
+      }
       let credentialObject = tokenHelper.createCredential(myConfig.entityDID, myConfig.entityDID, identityDID,
                                                                 myConfig.context, credentialSubject, expDate, currentDate, jti)
       let credentialSigned = tokenHelper.signJWT(credentialObject, myConfig.entityPrivateKey)
