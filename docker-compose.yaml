@@ -17,6 +17,8 @@ services:
     volumes:
       - ./entityBackend/api:/app/api
       - ./entityBackend/config.json:/app/config.json
+    environment: 
+      - DEBUG=true;
     command: npm run start
 
   entityfrontend:
